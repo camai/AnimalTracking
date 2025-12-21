@@ -2,6 +2,7 @@ plugins {
     id("primitive.android.application")
     id("primitive.android.application.compose")
     id("primitive.android.hilt")
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -43,4 +44,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.kotlinx.serialization.json)
 }
