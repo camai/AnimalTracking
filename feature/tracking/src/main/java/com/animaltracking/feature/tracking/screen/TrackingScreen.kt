@@ -1,4 +1,4 @@
-package com.animaltracking.feature.tracking
+package com.animaltracking.feature.tracking.screen
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -23,24 +24,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavGraphBuilder
-import androidx.navigation.compose.composable
+import com.animaltracking.feature.tracking.viewmodel.TrackingViewModel
 import java.util.concurrent.Executors
-import kotlinx.serialization.Serializable
 
-@Serializable
-object TrackingNavRoute
-
-fun NavGraphBuilder.trackingGraph() {
-    composable<TrackingNavRoute> {
-        TrackingRoute()
-    }
-}
 
 @Composable
 internal fun TrackingRoute(
@@ -50,18 +41,19 @@ internal fun TrackingRoute(
 
     TrackingScreen(
         hasPermission = uiState.hasCameraPermission,
-        onPermissionResult = viewModel::onPermissionResult
+        onPermissionResult = viewModel::onPermissionResult,
+        onFrameReceived = viewModel::onFrameReceived
     )
 }
 
 @Composable
 private fun TrackingScreen(
     hasPermission: Boolean,
-    onPermissionResult: (Boolean) -> Unit
+    onPermissionResult: (Boolean) -> Unit,
+    onFrameReceived: (androidx.camera.core.ImageProxy) -> Unit
 ) {
     val context = LocalContext.current
-    
-    // Permission Launcher
+
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { granted ->
@@ -71,26 +63,20 @@ private fun TrackingScreen(
 
     // Check initial permission
     LaunchedEffect(Unit) {
-        val initialGranted = ContextCompat.checkSelfPermission(
+        val isGranted = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.CAMERA
         ) == PackageManager.PERMISSION_GRANTED
         
-        if (initialGranted) {
-            onPermissionResult(true)
-        } else {
-            // Optionally launch immediately or wait for user interaction?
-            // User flow: Launch immediately for camera apps usually.
-            onPermissionResult(false) // Sync state
-            // Don't auto-launch here to avoid strict loops, let the UI decide or use a side-effect.
-            // But for simplicity, we rely on the button if not granted.
-        }
+        onPermissionResult(isGranted)
     }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+        Box(modifier = Modifier
+            .padding(innerPadding)
+            .fillMaxSize()) {
             if (hasPermission) {
-                CameraPreview()
+                CameraPreview(onFrameReceived = onFrameReceived)
             } else {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -106,7 +92,9 @@ private fun TrackingScreen(
 }
 
 @Composable
-private fun CameraPreview() {
+private fun CameraPreview(
+    onFrameReceived: (ImageProxy) -> Unit
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -137,16 +125,15 @@ private fun CameraPreview() {
                     .build()
 
                 imageAnalysis.setAnalyzer(Executors.newSingleThreadExecutor()) { imageProxy ->
-                    // Todo: Feed to TFLite Detector
-                    imageProxy.close()
+                    onFrameReceived(imageProxy)
                 }
 
                 try {
                     cameraProvider.unbindAll()
                     cameraProvider.bindToLifecycle(
-                        lifecycleOwner,
-                        cameraSelector,
-                        preview,
+                        /* lifecycleOwner = */ lifecycleOwner,
+                        /* cameraSelector = */ cameraSelector,
+                        /* ...useCases = */ preview,
                         imageAnalysis
                     )
                 } catch (e: Exception) {
