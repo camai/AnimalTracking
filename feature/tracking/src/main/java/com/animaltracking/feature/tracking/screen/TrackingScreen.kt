@@ -33,6 +33,8 @@ import com.animaltracking.feature.tracking.viewmodel.TrackingViewModel
 import java.util.concurrent.Executors
 
 
+import com.animaltracking.feature.tracking.ui.BoundingBoxOverlay
+
 @Composable
 internal fun TrackingRoute(
     viewModel: TrackingViewModel = hiltViewModel()
@@ -42,7 +44,8 @@ internal fun TrackingRoute(
     TrackingScreen(
         hasPermission = uiState.hasCameraPermission,
         onPermissionResult = viewModel::onPermissionResult,
-        onFrameReceived = viewModel::onFrameReceived
+        onFrameReceived = viewModel::onFrameReceived,
+        trackedObjects = uiState.trackedObjects
     )
 }
 
@@ -50,7 +53,8 @@ internal fun TrackingRoute(
 private fun TrackingScreen(
     hasPermission: Boolean,
     onPermissionResult: (Boolean) -> Unit,
-    onFrameReceived: (androidx.camera.core.ImageProxy) -> Unit
+    onFrameReceived: (androidx.camera.core.ImageProxy) -> Unit,
+    trackedObjects: List<com.animaltracking.domain.model.TrackedObject> = emptyList()
 ) {
     val context = LocalContext.current
 
@@ -77,6 +81,7 @@ private fun TrackingScreen(
             .fillMaxSize()) {
             if (hasPermission) {
                 CameraPreview(onFrameReceived = onFrameReceived)
+                com.animaltracking.feature.tracking.ui.BoundingBoxOverlay(trackedObjects = trackedObjects)
             } else {
                 Box(
                     modifier = Modifier.fillMaxSize(),

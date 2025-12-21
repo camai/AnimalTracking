@@ -6,8 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
-import com.animaltracking.feature.tracking.TrackingNavRoute
-import com.animaltracking.feature.tracking.trackingGraph
+import com.animaltracking.feature.tracking.navigation.TrackingNavRoute
+import com.animaltracking.feature.tracking.navigation.trackingGraph
 import com.jg.animaltracking.ui.theme.AnimalTrackingTheme
 import dagger.hilt.android.AndroidEntryPoint
 

@@ -12,6 +12,7 @@ import javax.inject.Inject
 
 import com.animaltracking.domain.repository.ObjectDetector
 import com.animaltracking.domain.repository.ObjectTracker
+import com.animaltracking.domain.model.TrackedObject
 
 @HiltViewModel
 class TrackingViewModel @Inject constructor(
@@ -31,13 +32,15 @@ class TrackingViewModel @Inject constructor(
         if (bitmap != null) {
             val detections = objectDetector.detect(bitmap, imageProxy.imageInfo.rotationDegrees)
             val trackedObjects = objectTracker.track(detections)
-            Log.d("TrackingViewModel", "Tracked: ${trackedObjects.size} objects")
-            // TODO: Update UI state with tracked objects
+            _uiState.value = _uiState.value.copy(trackedObjects = trackedObjects)
         }
         imageProxy.close()
     }
 }
 
+
+
 data class TrackingUiState(
-    val hasCameraPermission: Boolean = false
+    val hasCameraPermission: Boolean = false,
+    val trackedObjects: List<TrackedObject> = emptyList()
 )
