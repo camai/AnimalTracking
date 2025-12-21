@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /Users/ijung-geun/AnimalTracking/core/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10563766378897537477.xml:2:13-83
+INJECTED from /Users/ijung-geun/AnimalTracking/core/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10563766378897537477.xml:2:13-83
+	package
+		INJECTED from /Users/ijung-geun/AnimalTracking/core/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10563766378897537477.xml
+	xmlns:android
+		ADDED from /Users/ijung-geun/AnimalTracking/core/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10563766378897537477.xml:2:23-81
+uses-sdk
+INJECTED from /Users/ijung-geun/AnimalTracking/core/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10563766378897537477.xml reason: use-sdk injection requested
+INJECTED from /Users/ijung-geun/AnimalTracking/core/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10563766378897537477.xml
+INJECTED from /Users/ijung-geun/AnimalTracking/core/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10563766378897537477.xml
+	android:targetSdkVersion
+		INJECTED from /Users/ijung-geun/AnimalTracking/core/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10563766378897537477.xml
+	android:minSdkVersion
+		INJECTED from /Users/ijung-geun/AnimalTracking/core/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest10563766378897537477.xml
