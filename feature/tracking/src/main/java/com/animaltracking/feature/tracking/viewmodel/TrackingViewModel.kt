@@ -11,10 +11,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 
 import com.animaltracking.domain.repository.ObjectDetector
+import com.animaltracking.domain.repository.ObjectTracker
 
 @HiltViewModel
 class TrackingViewModel @Inject constructor(
-    private val objectDetector: ObjectDetector
+    private val objectDetector: ObjectDetector,
+    private val objectTracker: ObjectTracker
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TrackingUiState())
@@ -27,9 +29,10 @@ class TrackingViewModel @Inject constructor(
     fun onFrameReceived(imageProxy: ImageProxy) {
         val bitmap = BitmapUtils.imageProxyToBitmap(imageProxy)
         if (bitmap != null) {
-            val results = objectDetector.detect(bitmap, imageProxy.imageInfo.rotationDegrees)
-            // Log results for now to verify
-            Log.d("TrackingViewModel", "Detected: ${results.size} objects")
+            val detections = objectDetector.detect(bitmap, imageProxy.imageInfo.rotationDegrees)
+            val trackedObjects = objectTracker.track(detections)
+            Log.d("TrackingViewModel", "Tracked: ${trackedObjects.size} objects")
+            // TODO: Update UI state with tracked objects
         }
         imageProxy.close()
     }
