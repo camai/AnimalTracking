@@ -5,10 +5,11 @@ plugins {
 group = "com.animaltracking.buildlogic"
 
 dependencies {
-    compileOnly(libs.android.gradlePlugin)
-    compileOnly(libs.kotlin.gradlePlugin)
-    compileOnly(libs.ksp.gradlePlugin)
-    compileOnly(libs.compose.compiler) 
+    implementation(libs.android.gradlePlugin)
+    implementation(libs.kotlin.gradlePlugin)
+    implementation(libs.kotlin.serialization)
+    implementation(libs.android.tools.common)
+    implementation(libs.compose.gradlePlugin)
 }
 
 gradlePlugin {

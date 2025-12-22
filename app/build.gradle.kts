@@ -1,7 +1,7 @@
 plugins {
-    id("primitive.android.application")
-    id("primitive.android.application.compose")
-    id("primitive.android.hilt")
+    alias(libs.plugins.primitive.android.application)
+    alias(libs.plugins.primitive.android.application.compose)
+    alias(libs.plugins.primitive.android.hilt)
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -10,8 +10,6 @@ android {
 
     defaultConfig {
         applicationId = "com.jg.animaltracking"
-        minSdk = 27 // Keeping higher minSdk as per original file
-        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -38,6 +36,7 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":domain"))
     implementation(project(":data"))
+    implementation(project(":ai"))
     implementation(project(":feature:tracking"))
 
     implementation(libs.androidx.core.ktx)

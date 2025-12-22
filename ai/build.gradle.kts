@@ -1,6 +1,6 @@
 plugins {
-    id("primitive.android.library")
-    id("primitive.android.hilt")
+    alias(libs.plugins.primitive.android.library)
+    alias(libs.plugins.primitive.android.hilt)
 }
 
 android {
@@ -10,12 +10,11 @@ android {
 dependencies {
     implementation(project(":core"))
 
-    // LiteRT (TensorFlow Lite)
-    implementation(libs.litert)
-    implementation(libs.litert.api)
-    implementation(libs.litert.support)
-    implementation(libs.litert.gpu)
-    implementation(libs.litert.gpu.api)
+    // TensorFlow Lite
+    implementation(libs.tensorflow.lite)
+    implementation(libs.tensorflow.lite.gpu)
+    implementation(libs.tensorflow.lite.gpu.api)
+    implementation(libs.tensorflow.lite.support)
     
     // Core Dependencies
     implementation(libs.androidx.core.ktx)

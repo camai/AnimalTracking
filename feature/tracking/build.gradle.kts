@@ -1,7 +1,7 @@
 plugins {
-    id("primitive.android.library")
-    id("primitive.android.hilt")
-    id("primitive.android.library.compose")
+    alias(libs.plugins.primitive.android.library)
+    alias(libs.plugins.primitive.android.hilt)
+    alias(libs.plugins.primitive.android.library.compose)
     alias(libs.plugins.kotlin.serialization)
 }
 
