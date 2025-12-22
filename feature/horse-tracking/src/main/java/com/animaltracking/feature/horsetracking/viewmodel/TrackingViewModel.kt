@@ -1,4 +1,4 @@
-package com.animaltracking.feature.tracking.viewmodel
+package com.animaltracking.feature.horsetracking.viewmodel
 
 import android.util.Log
 import androidx.camera.core.ImageProxy
@@ -9,13 +9,13 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.animaltracking.domain.model.TrackedObject
 import com.animaltracking.domain.repository.ObjectDetector
 import com.animaltracking.domain.repository.ObjectTracker
-import com.animaltracking.domain.model.TrackedObject
 import java.util.concurrent.atomic.AtomicBoolean
 
 @HiltViewModel
@@ -26,10 +26,6 @@ class TrackingViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(TrackingUiState())
     val uiState: StateFlow<TrackingUiState> = _uiState.asStateFlow()
-
-    fun onPermissionResult(granted: Boolean) {
-        _uiState.value = _uiState.value.copy(hasCameraPermission = granted)
-    }
 
     fun toggleObjectLock(trackedObject: TrackedObject) {
          val currentLock = objectTracker.getLockId()
@@ -58,10 +54,10 @@ class TrackingViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.Default) {
             try {
 
-                // Pass cachedBitmap to recycle memory
+                // 캐시된 비트맵을 활용해 메모리 재사용
                 val bitmap = BitmapUtils.imageProxyToBitmap(imageProxy, cachedBitmap)
 
-                cachedBitmap = bitmap // Update cache with the returned bitmap (could be new or reused)
+                cachedBitmap = bitmap // 반환된 비트맵으로 캐시 갱신(신규 또는 재사용)
 
                 if (bitmap != null) {
                     val rotation = imageProxy.imageInfo.rotationDegrees
@@ -95,8 +91,7 @@ class TrackingViewModel @Inject constructor(
 
 
 data class TrackingUiState(
-    val hasCameraPermission: Boolean = false,
     val trackedObjects: List<TrackedObject> = emptyList(),
-    val frameSize: Pair<Int, Int>? = null, // width, height for coordinate mapping
+    val frameSize: Pair<Int, Int>? = null, // 좌표 매핑용 너비/높이
     val lockedObjectId: Int? = null
 )

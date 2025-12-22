@@ -10,7 +10,7 @@ android {
 dependencies {
     implementation(project(":core"))
     implementation(project(":domain"))
-    implementation(project(":ai")) // Added AI module dependency
+    implementation(project(":ai")) // AI 모듈 의존성 추가
 
     implementation(libs.androidx.core.ktx)
 

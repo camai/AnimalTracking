@@ -8,11 +8,14 @@ CameraX와 TensorFlow Lite를 활용한 실시간 동물(말) 추적 안드로�
  
 ```mermaid
 graph TD
-    subgraph Feature [Feature: Tracking]
+    subgraph FeatureHorseTracking [Feature: Horse Tracking]
         ViewModel[TrackingViewModel] --> UseCase[IoUTracker]
         Screen[TrackingScreen] --> ViewModel
         Screen --> Overlay[BoundingBoxOverlay]
-        Screen --> Camera[CameraPreview]
+    end
+
+    subgraph FeatureCamera [Feature: Camera]
+        Camera[CameraPreview]
     end
  
     subgraph Domain [Domain Layer]
@@ -37,6 +40,7 @@ graph TD
         Utils[BitmapUtils]
     end
  
+    Screen --> Camera
     Camera -- ImageProxy --> ViewModel
     ViewModel -- Bitmap --> DetectorImpl
     DetectorImpl -- Bitmap --> AiCore
@@ -52,7 +56,8 @@ graph TD
 *   **:app**: 애플리케이션의 진입점 및 의존성 조립.
 *   **:domain**: 순수 비즈니스 로직 (UseCases, Models, Interface). 플랫폼 의존성 없음.
 *   **:data**: 데이터 리포지토리 구현. AI 엔진의 결과를 도메인 모델로 변환.
-*   **:feature:tracking**: UI 및 화면 로직 (Compose, ViewModel).
+*   **:feature:camera**: 카메라 프리뷰/권한 처리 전용 UI.
+*   **:feature:horse-tracking**: 말 추적 UI 및 화면 로직 (Compose, ViewModel).
 *   **:ai**: **[New]** 독립적인 AI 탐지 라이브러리 모듈.
     *   TensorFlow Lite 로직을 캡슐화하여, 다른 앱에서도 재사용 가능하도록 설계.
 *   **:core**: 공통 유틸리티 (Bitmap 처리 등).

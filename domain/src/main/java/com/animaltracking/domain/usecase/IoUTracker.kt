@@ -11,12 +11,11 @@ class IoUTracker @Inject constructor() : ObjectTracker {
 
     private var nextObjectId = 0
     private var trackedObjects = mutableListOf<TrackedObject>()
-    private val iouThreshold = 0.15f // 매칭 문턱값 완화 (0.3 -> 0.15)하여 트래킹 끊김 방지
+    private val iouThreshold = 0.15f
 
-    private val maxFrameMiss = 30 // Stickiness 조절: 40 -> 30 (약 1초)
+    private val maxFrameMiss = 30 // 유지력 조절: 40 -> 30 (약 1초)
     private var lockId: Int? = null
 
-    // Simple tracking state: ID -> (MissCount, LastSeenTrackedObject)
     private val tracks = HashMap<Int, Pair<Int, TrackedObject>>()
 
     override fun setLockId(id: Int?) {
@@ -30,11 +29,11 @@ class IoUTracker @Inject constructor() : ObjectTracker {
     override fun track(detections: List<BoundingBox>): List<TrackedObject> {
         val newTrackedObjects = ArrayList<TrackedObject>()
         
-        // 1. Try to match currently tracked objects with new detections
+        // 1. 현재 트랙과 신규 탐지를 매칭
         val activeTracks = tracks.map { it.value.second }.toMutableList()
         val unmatchedDetections = detections.toMutableList()
         
-        // Match existing tracks to new detections
+        // 기존 트랙을 신규 탐지와 매칭
         val matchedIds = HashSet<Int>()
         val matches = ArrayList<Pair<TrackedObject, BoundingBox>>()
         
@@ -57,22 +56,22 @@ class IoUTracker @Inject constructor() : ObjectTracker {
             }
         }
         
-        // Update matched tracks
+        // 매칭된 트랙 갱신
         for ((oldTrack, detection) in matches) {
             val smoothedBox = smoothBox(oldTrack.boundingBox, detection, 0.7f)
             val updatedTrack = TrackedObject(oldTrack.id, smoothedBox)
-            tracks[oldTrack.id] = 0 to updatedTrack // Reset miss count
+            tracks[oldTrack.id] = 0 to updatedTrack // 미스 카운트 초기화
             newTrackedObjects.add(updatedTrack)
         }
         
-        // Handle Unmatched Tracks (Disappeared?)
+        // 매칭되지 않은 트랙 처리 (사라짐?)
         val disappearedIds = tracks.keys - matchedIds
         for (id in disappearedIds) {
             val (missCount, lastTrack) = tracks[id]!!
             if (missCount < maxFrameMiss) {
                 tracks[id] = (missCount + 1) to lastTrack
                 
-                // 예측 함수: 마지막 위치 유지 (Static)
+                // 마지막 위치 유지 (정지)
                 val predictedTrack = if (missCount > 0) {
                     val prediction = predictNextPosition(lastTrack, missCount)
                     TrackedObject(lastTrack.id, prediction)
@@ -90,9 +89,9 @@ class IoUTracker @Inject constructor() : ObjectTracker {
             }
         }
         
-        // Handle Unmatched Detections (New Objects)
+        // 매칭되지 않은 탐지 처리 (새 객체)
         if (tracks.isEmpty() && unmatchedDetections.isNotEmpty()) {
-            // Initial Frame Logic: Single Target Selection
+            // 초기 프레임 로직: 단일 대상 선택
             val bestDetection = unmatchedDetections.maxByOrNull { it.cnf }
             if (bestDetection != null) {
                 val newId = nextObjectId++
@@ -109,18 +108,18 @@ class IoUTracker @Inject constructor() : ObjectTracker {
             }
         }
         
-        // Auto-Lock Logic:
-        // 만약 lockId가 없다면, 가장 좋은 후보를 선정 (Center Priority + Size + Confidence)
+        // 자동 락 로직:
+        // lockId가 없으면, 가장 좋은 후보를 선정 (중심 우선 + 크기 + 신뢰도)
         if (lockId == null && newTrackedObjects.isNotEmpty()) {
             val bestCandidate = newTrackedObjects.maxByOrNull { obj ->
                 val box = obj.boundingBox
                 val areaScore = box.w * box.h
                 val confScore = box.cnf
-                // Center Score: 1.0 at center(0.5), 0.0 at edges
+                // 중심 점수: 중심(0.5)은 1.0, 가장자리는 0.0
                 val centerScore = 1.0f - kotlin.math.abs(box.cx - 0.5f) * 2
                 
                 // 가중치 합산: 신뢰도 > 중심 > 크기
-                // Confidence가 제일 중요. 그 다음 중심.
+                // 신뢰도가 가장 중요하고, 그다음은 중심.
                 confScore * 2.0f + centerScore * 1.5f + areaScore
             }
             
@@ -135,8 +134,8 @@ class IoUTracker @Inject constructor() : ObjectTracker {
         return if (lockId != null) {
             newTrackedObjects.filter { it.id == lockId }
         } else {
-            // 방어 코드: 만약 락이 풀렸는데 객체가 있다면 다시 다음 프레임에 잡힐 것임.
-            // 일단은 빈 리스트 대신 전체 리스트 반환 (Auto-Lock이 즉시 동작하므로 이 분기는 거의 안 탐)
+            // 만약 락이 풀렸는데 객체가 있다면 다시 다음 프레임에 잡힐 것임.
+            // 일단은 빈 리스트 대신 전체 리스트 반환 (자동 락이 즉시 동작하므로 이 분기는 거의 안 탐)
             newTrackedObjects
         }
     }
@@ -160,7 +159,7 @@ class IoUTracker @Inject constructor() : ObjectTracker {
         return interArea / (boxAArea + boxBArea - interArea)
     }
     
-    // 예측 함수: 랜덤 떨림 제거하고 마지막 위치 유지 (Static)
+    // 떨림 제거하고 마지막 위치 유지 (정지)
     private fun predictNextPosition(track: TrackedObject, missFrames: Int): BoundingBox {
         return track.boundingBox
     }
@@ -175,7 +174,7 @@ class IoUTracker @Inject constructor() : ObjectTracker {
             cy = oldBox.cy * (1 - alpha) + newBox.cy * alpha,
             w = oldBox.w * (1 - alpha) + newBox.w * alpha,
             h = oldBox.h * (1 - alpha) + newBox.h * alpha,
-            cnf = newBox.cnf, // 신뢰도는 최신 값 사용
+            cnf = newBox.cnf,
             cls = newBox.cls,
             clsName = newBox.clsName
         )

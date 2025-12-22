@@ -1,4 +1,4 @@
-package com.animaltracking.feature.tracking.screen
+package com.animaltracking.feature.camera
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -14,94 +14,56 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.animaltracking.feature.tracking.viewmodel.TrackingViewModel
 import java.util.concurrent.Executors
 
-
-import com.animaltracking.feature.tracking.ui.BoundingBoxOverlay
-
 @Composable
-internal fun TrackingRoute(
-    viewModel: TrackingViewModel = hiltViewModel()
-) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
-    TrackingScreen(
-        hasPermission = uiState.hasCameraPermission,
-        onPermissionResult = viewModel::onPermissionResult,
-        onFrameReceived = viewModel::onFrameReceived,
-        trackedObjects = uiState.trackedObjects,
-        frameSize = uiState.frameSize,
-        lockedObjectId = uiState.lockedObjectId,
-        onObjectClicked = viewModel::toggleObjectLock
-    )
-}
-
-@Composable
-private fun TrackingScreen(
-    hasPermission: Boolean,
-    onPermissionResult: (Boolean) -> Unit,
-    onFrameReceived: (androidx.camera.core.ImageProxy) -> Unit,
-    trackedObjects: List<com.animaltracking.domain.model.TrackedObject> = emptyList(),
-    frameSize: Pair<Int, Int>? = null,
-    lockedObjectId: Int? = null,
-    onObjectClicked: (com.animaltracking.domain.model.TrackedObject) -> Unit = {}
+fun CameraPreviewWithPermission(
+    modifier: Modifier = Modifier,
+    onFrameReceived: (ImageProxy) -> Unit,
+    content: @Composable () -> Unit = {}
 ) {
     val context = LocalContext.current
+    var hasPermission by remember { mutableStateOf(false) }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { granted ->
-            onPermissionResult(granted)
+            hasPermission = granted
         }
     )
 
-    // Check initial permission
     LaunchedEffect(Unit) {
-        val isGranted = ContextCompat.checkSelfPermission(
+        hasPermission = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.CAMERA
         ) == PackageManager.PERMISSION_GRANTED
-        
-        onPermissionResult(isGranted)
     }
 
-    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-        Box(modifier = Modifier
-            .padding(innerPadding)
-            .fillMaxSize()) {
-            if (hasPermission) {
-                CameraPreview(onFrameReceived = onFrameReceived)
-                com.animaltracking.feature.tracking.ui.BoundingBoxOverlay(
-                    trackedObjects = trackedObjects,
-                    imageWidth = frameSize?.first ?: 320,
-                    imageHeight = frameSize?.second ?: 320,
-                    lockedObjectId = lockedObjectId,
-                    onObjectClick = onObjectClicked
-                )
-            } else {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Button(onClick = { launcher.launch(Manifest.permission.CAMERA) }) {
-                        Text(text = "Request Camera Permission")
-                    }
+    Box(modifier = modifier.fillMaxSize()) {
+        if (hasPermission) {
+            CameraPreview(onFrameReceived = onFrameReceived)
+            content()
+        } else {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Button(onClick = { launcher.launch(Manifest.permission.CAMERA) }) {
+                    Text(text = "Request Camera Permission")
                 }
             }
         }
@@ -115,7 +77,7 @@ private fun CameraPreview(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    val previewView = androidx.compose.runtime.remember { PreviewView(context) }
+    val previewView = remember { PreviewView(context) }
 
     AndroidView(
         factory = {
@@ -128,9 +90,8 @@ private fun CameraPreview(
             }
         },
         modifier = Modifier.fillMaxSize(),
-        update = { 
-            // View update logic if needed (e.g. dynamic layout params), 
-            // but Camera binding should NOT be here.
+        update = {
+            // 카메라 바인딩은 뷰 업데이트에서 제외
         }
     )
 
@@ -164,7 +125,7 @@ private fun CameraPreview(
                     imageAnalysis
                 )
             } catch (e: Exception) {
-                Log.e("TrackingScreen", "Use case binding failed", e)
+                Log.e("CameraPreview", "Use case binding failed", e)
             }
         }, ContextCompat.getMainExecutor(context))
     }

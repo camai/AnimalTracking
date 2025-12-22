@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.jg.animaltracking" // Keeping existing namespace to avoid refactoring MainActivity immediately
+    namespace = "com.jg.animaltracking" // MainActivity 리팩터링을 피하기 위해 기존 네임스페이스 유지
 
     defaultConfig {
         applicationId = "com.jg.animaltracking"
@@ -37,7 +37,7 @@ dependencies {
     implementation(project(":domain"))
     implementation(project(":data"))
     implementation(project(":ai"))
-    implementation(project(":feature:tracking"))
+    implementation(project(":feature:horse-tracking"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

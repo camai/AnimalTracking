@@ -1,4 +1,4 @@
-package com.animaltracking.feature.tracking.ui
+package com.animaltracking.feature.horsetracking.ui
 
 import android.annotation.SuppressLint
 import android.graphics.Paint
@@ -35,18 +35,18 @@ fun BoundingBoxOverlay(
         val width = constraints.maxWidth.toFloat()
         val height = constraints.maxHeight.toFloat()
 
-        // Calculate scale to maintain aspect ratio (Aspect Fill / FILL_CENTER)
+        // 종횡비 유지용 스케일 계산 (Aspect Fill / FILL_CENTER)
         val scale = kotlin.math.max(width / imageWidth, height / imageHeight)
 
-        // Calculate the actual size of the rendered image within the view
+        // 뷰 안에서 렌더링되는 이미지 실제 크기 계산
         val scaledImageWidth = imageWidth * scale
         val scaledImageHeight = imageHeight * scale
 
-        // Calculate offsets to center the image (FILL_CENTER behavior)
+        // 이미지 중앙 정렬을 위한 오프셋 계산 (FILL_CENTER 동작)
         val offsetX = (width - scaledImageWidth) / 2f
         val offsetY = (height - scaledImageHeight) / 2f
 
-        // Touch handling
+        // 터치 처리
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -55,14 +55,14 @@ fun BoundingBoxOverlay(
                         val tapX = tapOffset.x
                         val tapY = tapOffset.y
 
-                        // Convert tap to normalized image coordinates
+                        // 탭 좌표를 정규화된 이미지 좌표로 변환
                         val normX = (tapX - offsetX) / scaledImageWidth
                         val normY = (tapY - offsetY) / scaledImageHeight
 
                         android.util.Log.d("TrackingOverlay", "Tap: ($tapX, $tapY) -> Norm: ($normX, $normY)")
                         android.util.Log.d("TrackingOverlay", "ImageArea: Offset($offsetX, $offsetY), Size($scaledImageWidth, $scaledImageHeight)")
 
-                        // Find touched object (reverse order to pick top-most if overlapping)
+                        // 터치된 객체 찾기(겹칠 경우 상단 우선으로 역순 탐색)
                         val touchedObject = trackedObjects.lastOrNull { obj ->
                             val box = obj.boundingBox
                             val hit = normX >= box.x1 && normX <= box.x2 && normY >= box.y1 && normY <= box.y2
@@ -79,7 +79,7 @@ fun BoundingBoxOverlay(
                 }
         )
 
-        // Setup Paint for text
+        // 텍스트용 Paint 설정
         val paint = Paint().apply {
             color = android.graphics.Color.WHITE
             textSize = 50f
@@ -89,7 +89,7 @@ fun BoundingBoxOverlay(
         val greenColor = Color(0xFF00FF00)
         val whiteColor = Color(0xFFFFFFFF)
 
-        // Render each object
+        // 각 객체 렌더링
         trackedObjects.forEach { trackedObject ->
             val isLocked = trackedObject.id == lockedObjectId
             // 녹색: 락 걸림, 흰색: 일반
@@ -103,7 +103,7 @@ fun BoundingBoxOverlay(
             key(trackedObject.id) {
                 TrackedObjectBox(
                     trackedObject = trackedObject,
-                    // Pass the scaled dimensions and offsets to the box
+                    // 스케일된 크기와 오프셋을 박스에 전달
                     renderWidth = scaledImageWidth,
                     renderHeight = scaledImageHeight,
                     offsetX = offsetX,
@@ -128,19 +128,19 @@ private fun TrackedObjectBox(
 ) {
     val box = trackedObject.boundingBox
 
-    // Target Values (Normalized coords * Rendered Size + Offset)
+    // 목표 값(정규화 좌표 * 렌더 크기 + 오프셋)
     val targetLeft = (box.x1 * renderWidth) + offsetX
     val targetTop = (box.y1 * renderHeight) + offsetY
     val targetWidth = box.w * renderWidth
     val targetHeight = box.h * renderHeight
 
-    // Animate coordinates for smooth movement
+    // 부드러운 이동을 위한 좌표 애니메이션
     val animatedLeft by animateFloatAsState(targetValue = targetLeft, label = "left")
     val animatedTop by animateFloatAsState(targetValue = targetTop, label = "top")
     val animatedWidth by animateFloatAsState(targetValue = targetWidth, label = "width")
     val animatedHeight by animateFloatAsState(targetValue = targetHeight, label = "height")
 
-    // Draw the individual box
+    // 개별 박스 그리기
     Canvas(modifier = Modifier.fillMaxSize()) {
         drawRoundRect(
             color = primaryColor,
@@ -150,11 +150,11 @@ private fun TrackedObjectBox(
             style = Stroke(width = 8f)
         )
 
-        // Draw Text Label
+        // 텍스트 라벨 그리기
         drawContext.canvas.nativeCanvas.drawText(
             "Horse ${trackedObject.id} ${(box.cnf * 100).toInt()}%",
             animatedLeft,
-            animatedTop - 20, // Slightly higher than box
+            animatedTop - 20, // 박스보다 약간 위로
             paint
         )
     }

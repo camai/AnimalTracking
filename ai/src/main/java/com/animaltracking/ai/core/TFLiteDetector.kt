@@ -84,7 +84,7 @@ class TFLiteDetector @Inject constructor(
         }
         if (interpreter == null) return emptyList()
 
-        // 1. Preprocess
+        // 1. 전처리
         val numRotation = rotation / 90
         val imageProcessor = ImageProcessor.Builder()
             .add(Rot90Op(-numRotation))
@@ -96,9 +96,9 @@ class TFLiteDetector @Inject constructor(
         tensorImage.load(image)
         tensorImage = imageProcessor.process(tensorImage)
 
-        // 2. Inference
+        // 2. 추론
         val outputTensor = interpreter!!.getOutputTensor(0)
-        val outputShape = outputTensor.shape() // [1, channels, anchors]
+        val outputShape = outputTensor.shape() // [1, 채널, 앵커]
         val channels = outputShape[1]
         val anchors = outputShape[2]
 
@@ -110,13 +110,13 @@ class TFLiteDetector @Inject constructor(
         val floatArray = FloatArray(channels * anchors)
         outputBuffer.asFloatBuffer().get(floatArray)
 
-        // 3. Post-process (Parsing & Filtering)
+        // 3. 후처리(파싱 및 필터링)
         val detectionBoxes = ArrayList<DetectionBox>()
 
         for (i in 0 until anchors) {
-            // YOLO output layout handling might vary, assuming [cx, cy, w, h, score, ...] per anchor
-            // Based on previous code: indexScore was at 4 * anchors + i, assuming planar or specific stride
-            // Let's stick to the previous indexing logic if it was correct for the model
+            // YOLO 출력 레이아웃은 다를 수 있음. 앵커당 [cx, cy, w, h, score, ...]로 가정
+            // 이전 코드 기준: indexScore가 4 * anchors + i 위치(평면 또는 특정 stride 가정)
+            // 모델에 맞다고 가정하고 기존 인덱싱 로직 유지
             
             val indexCx = i
             val indexCy = anchors + i
@@ -126,14 +126,14 @@ class TFLiteDetector @Inject constructor(
             
             val score = floatArray[indexScore]
 
-            // Filter by Confidence only (relaxed to 0.45 to catch back views)
+            // 신뢰도로만 필터링(후면 탐지를 위해 0.45로 완화)
             if (score > 0.45f) {
                 var cx = floatArray[indexCx]
                 var cy = floatArray[indexCy]
                 var w = floatArray[indexW]
                 var h = floatArray[indexH]
 
-                // Normalize if needed (assuming model outputs < 1.0, but safety check)
+                // 필요 시 정규화(모델 출력이 1.0 미만이라고 가정하지만 안전 체크)
                 if (cx > 1.0f || cy > 1.0f || w > 1.0f || h > 1.0f) {
                      cx /= inputImageWidth
                      cy /= inputImageHeight

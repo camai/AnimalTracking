@@ -15,7 +15,6 @@ object BitmapUtils {
 
     fun imageProxyToBitmap(image: ImageProxy, reusableBitmap: Bitmap? = null): Bitmap? {
         if (image.format == ImageFormat.YUV_420_888) {
-             // YUV_420_888 변환 지원 추가
              return yuvToRgbBitmap(image)
         }
         
@@ -26,11 +25,11 @@ object BitmapUtils {
              val rowStride = plane.rowStride
              val rowPadding = rowStride - pixelStride * image.width
              
-             // Calculate valid width/height
+             // 유효한 너비/높이 계산
              val width = image.width + rowPadding / pixelStride
              val height = image.height
              
-             // Check if reusableBitmap is valid
+             // reusableBitmap이 유효한지 확인
              val bitmap = if (reusableBitmap != null && 
                               reusableBitmap.width == width && 
                               reusableBitmap.height == height &&
@@ -40,17 +39,17 @@ object BitmapUtils {
                  Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
              }
              
-             buffer.rewind() // Ensure buffer is at the beginning
+             buffer.rewind() // 버퍼 위치를 처음으로 이동
              bitmap.copyPixelsFromBuffer(buffer)
              
-             // If padding exists, we might need to crop, but usually for ML input we just resize anyway.
-             // For now, returning the padded bitmap is faster, but if exact size is needed:
+             // 패딩이 있으면 크롭이 필요할 수 있지만, 보통 ML 입력에서는 리사이즈로 처리함.
+             // 지금은 패딩 포함 비트맵 반환이 더 빠르지만, 정확한 크기가 필요하면:
              if (rowPadding == 0) {
                  return bitmap
              }
              
-             // Note: Reusing cropping bitmaps is harder. 
-             // Ideally we pass the padded bitmap to ML and let it crop/resize.
+             // 참고: 크롭 비트맵 재사용은 더 어렵다.
+             // 이상적으로는 패딩 비트맵을 ML에 넘겨 크롭/리사이즈하게 한다.
              return Bitmap.createBitmap(bitmap, 0, 0, image.width, image.height)
         }
         

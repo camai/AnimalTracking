@@ -4,5 +4,5 @@ data class TrackedObject(
     val id: Int,
     val boundingBox: BoundingBox,
     val timestamp: Long = System.currentTimeMillis()
-    // Future: velocity, trajectory history, etc.
+    // 추후: 속도, 궤적 히스토리 등
 )

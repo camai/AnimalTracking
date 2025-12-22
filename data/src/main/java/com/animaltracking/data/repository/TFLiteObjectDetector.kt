@@ -11,10 +11,10 @@ class TFLiteObjectDetector @Inject constructor(
 ) : ObjectDetector {
 
     override fun detect(image: Bitmap, rotation: Int): List<BoundingBox> {
-        // Delegate detection to the AI module
+        // 탐지를 AI 모듈에 위임
         val detections = detector.detect(image, rotation)
 
-        // Map DetectionBox (AI) to BoundingBox (Domain)
+        // DetectionBox(AI)를 BoundingBox(Domain)로 매핑
         return detections.map { detection ->
             BoundingBox(
                 x1 = detection.x1,
