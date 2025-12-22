@@ -6,34 +6,35 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.animaltracking.core.util.BitmapUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.animaltracking.domain.error.DomainError
 import com.animaltracking.domain.model.TrackedObject
-import com.animaltracking.domain.repository.ObjectDetector
-import com.animaltracking.domain.repository.ObjectTracker
+import com.animaltracking.domain.result.DomainResult
+import com.animaltracking.domain.usecase.TrackObjectsUseCase
 import java.util.concurrent.atomic.AtomicBoolean
 
 @HiltViewModel
 class TrackingViewModel @Inject constructor(
-    private val objectDetector: ObjectDetector,
-    private val objectTracker: ObjectTracker
+    private val trackObjectsUseCase: TrackObjectsUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TrackingUiState())
     val uiState: StateFlow<TrackingUiState> = _uiState.asStateFlow()
 
+    private val _events = MutableSharedFlow<TrackingEvent>(extraBufferCapacity = 1)
+    val events: SharedFlow<TrackingEvent> = _events.asSharedFlow()
+
     fun toggleObjectLock(trackedObject: TrackedObject) {
-         val currentLock = objectTracker.getLockId()
-         if (currentLock == trackedObject.id) {
-             objectTracker.setLockId(null)
-         } else {
-             objectTracker.setLockId(trackedObject.id)
-         }
+        trackObjectsUseCase.toggleLock(trackedObject)
     }
 
     private val isProcessing = AtomicBoolean(false)
@@ -61,25 +62,39 @@ class TrackingViewModel @Inject constructor(
 
                 if (bitmap != null) {
                     val rotation = imageProxy.imageInfo.rotationDegrees
-                    val detections = objectDetector.detect(bitmap, rotation)
+                    when (val trackingResult = trackObjectsUseCase.track(bitmap, rotation)) {
+                        is DomainResult.Success -> {
+                            val trackedObjects = trackingResult.data.trackedObjects
+                            val lockedId = trackingResult.data.lockedObjectId
+                            val frameWidth = if (rotation == 90 || rotation == 270) {
+                                imageProxy.height
+                            } else {
+                                imageProxy.width
+                            }
+                            val frameHeight = if (rotation == 90 || rotation == 270) {
+                                imageProxy.width
+                            } else {
+                                imageProxy.height
+                            }
 
-                    val trackedObjects = objectTracker.track(detections)
-                    val lockedId = objectTracker.getLockId()
-                    
-                    val frameWidth = if (rotation == 90 || rotation == 270) imageProxy.height else imageProxy.width
-                    val frameHeight = if (rotation == 90 || rotation == 270) imageProxy.width else imageProxy.height
+                            viewModelScope.launch(Dispatchers.Main) {
+                                _uiState.value = _uiState.value.copy(
+                                    trackedObjects = trackedObjects,
+                                    frameSize = Pair(frameWidth, frameHeight),
+                                    lockedObjectId = lockedId
+                                )
+                            }
+                        }
 
-
-                    viewModelScope.launch(Dispatchers.Main) {
-                        _uiState.value = _uiState.value.copy(
-                            trackedObjects = trackedObjects,
-                            frameSize = Pair(frameWidth, frameHeight),
-                            lockedObjectId = lockedId
-                        )
+                        is DomainResult.Failure -> {
+                            Log.e("Tracking", "Tracking failed: ${trackingResult.error}")
+                            _events.tryEmit(TrackingEvent.ShowError(trackingResult.error))
+                        }
                     }
                 }
             } catch (e: Exception) {
                 Log.e("Tracking", "Error processing frame", e)
+                _events.tryEmit(TrackingEvent.ShowError(DomainError.Unexpected(e)))
             } finally {
                 imageProxy.close()
                 isProcessing.set(false)

@@ -7,18 +7,37 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.LaunchedEffect
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import com.animaltracking.domain.error.DomainError
 import com.animaltracking.domain.model.TrackedObject
 import com.animaltracking.feature.camera.CameraPreviewWithPermission
+import com.animaltracking.feature.horsetracking.R
 import com.animaltracking.feature.horsetracking.ui.BoundingBoxOverlay
+import com.animaltracking.feature.horsetracking.viewmodel.TrackingEvent
 import com.animaltracking.feature.horsetracking.viewmodel.TrackingViewModel
+import kotlinx.coroutines.flow.collectLatest
 
 @Composable
 internal fun TrackingRoute(
     viewModel: TrackingViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    LaunchedEffect(viewModel) {
+        viewModel.events.collectLatest { event ->
+            when (event) {
+                is TrackingEvent.ShowError -> {
+                    val message = context.getString(event.error.toMessageRes())
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     TrackingScreen(
         onFrameReceived = viewModel::onFrameReceived,
@@ -52,5 +71,12 @@ private fun TrackingScreen(
                 onObjectClick = onObjectClicked
             )
         }
+    }
+}
+
+private fun DomainError.toMessageRes(): Int {
+    return when (this) {
+        DomainError.DetectorUnavailable -> R.string.horse_tracking_error_detector_unavailable
+        is DomainError.Unexpected -> R.string.horse_tracking_error_unexpected
     }
 }

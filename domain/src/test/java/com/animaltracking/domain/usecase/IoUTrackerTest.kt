@@ -2,7 +2,6 @@ package com.animaltracking.domain.usecase
 
 import com.animaltracking.domain.model.BoundingBox
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -49,15 +48,10 @@ class IoUTrackerTest {
         val detection2 = createBoundingBox(200f, 200f, 250f, 250f)
         val trackedObjects = tracker.track(listOf(detection2))
 
-        // 2개의 객체가 반환되어야 하는가?
-        // 현재 로직상:
-        // - 기존 객체는 "소실(미스)" 상태 (메모리 유지), 현재 프레임에는 반환되지 않음?
-        // - 새로운 객체는 새 ID로 추적됨.
-        // 로직 확인: "newTrackedObjects"는 *현재* 탐지에 대해 *업데이트된* 또는 *신규* 트랙만 포함함.
-        // 따라서 1개의 객체(새로운 것)만 보여야 함.
+        // 락이 유지되므로 기존 객체만 반환되어야 함.
         
         assertEquals(1, trackedObjects.size) 
-        assertTrue(trackedObjects[0].id != 0) // 새로운 ID여야 함
+        assertEquals(0, trackedObjects[0].id)
     }
 
     private fun createBoundingBox(x1: Float, y1: Float, x2: Float, y2: Float): BoundingBox {

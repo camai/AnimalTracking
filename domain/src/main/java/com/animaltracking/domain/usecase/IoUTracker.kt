@@ -10,10 +10,15 @@ import kotlin.math.min
 class IoUTracker @Inject constructor() : ObjectTracker {
 
     private var nextObjectId = 0
-    private var trackedObjects = mutableListOf<TrackedObject>()
     private val iouThreshold = 0.15f
+    private val lockedCenterDistanceBase = 0.25f
+    private val lockedCenterDistanceMax = 0.6f
+    private val lockedAreaChangeThreshold = 0.7f
+    private val lockedScoreMin = 0.25f
+    private val lockedScoreMargin = 0.05f
 
     private val maxFrameMiss = 30 // 유지력 조절: 40 -> 30 (약 1초)
+    private val lockedMaxFrameMiss = 90
     private var lockId: Int? = null
 
     private val tracks = HashMap<Int, Pair<Int, TrackedObject>>()
@@ -27,6 +32,10 @@ class IoUTracker @Inject constructor() : ObjectTracker {
     }
 
     override fun track(detections: List<BoundingBox>): List<TrackedObject> {
+        if (lockId != null) {
+            return trackLocked(detections)
+        }
+
         val newTrackedObjects = ArrayList<TrackedObject>()
         
         // 1. 현재 트랙과 신규 탐지를 매칭
@@ -41,9 +50,10 @@ class IoUTracker @Inject constructor() : ObjectTracker {
             var bestDetection: BoundingBox? = null
             var maxIoU = -1f
             
+            val threshold = iouThreshold
             for (detection in unmatchedDetections) {
                 val iou = calculateIoU(track.boundingBox, detection)
-                if (iou > iouThreshold && iou > maxIoU) {
+                if (iou > threshold && iou > maxIoU) {
                     maxIoU = iou
                     bestDetection = detection
                 }
@@ -68,7 +78,9 @@ class IoUTracker @Inject constructor() : ObjectTracker {
         val disappearedIds = tracks.keys - matchedIds
         for (id in disappearedIds) {
             val (missCount, lastTrack) = tracks[id]!!
-            if (missCount < maxFrameMiss) {
+            val isLocked = id == lockId
+            val maxMiss = if (isLocked) lockedMaxFrameMiss else maxFrameMiss
+            if (missCount < maxMiss) {
                 tracks[id] = (missCount + 1) to lastTrack
                 
                 // 마지막 위치 유지 (정지)
@@ -80,12 +92,10 @@ class IoUTracker @Inject constructor() : ObjectTracker {
                 }
                 
                 newTrackedObjects.add(predictedTrack)
+            } else if (isLocked) {
+                tracks[id] = maxMiss to lastTrack
             } else {
                 tracks.remove(id)
-                // 만약 락 걸린 객체가 사라지면 락 해제
-                if (lockId == id) {
-                    lockId = null
-                }
             }
         }
         
@@ -145,6 +155,87 @@ class IoUTracker @Inject constructor() : ObjectTracker {
         nextObjectId = 0
         lockId = null
     }
+
+    private fun trackLocked(detections: List<BoundingBox>): List<TrackedObject> {
+        val lockedId = lockId ?: return emptyList()
+        val lockedEntry = tracks[lockedId]
+        val lockedTrack = lockedEntry?.second
+        val missCount = lockedEntry?.first ?: 0
+
+        if (lockedTrack == null) {
+            val bestDetection = detections.maxByOrNull { it.cnf }
+            return if (bestDetection != null) {
+                val newTrack = TrackedObject(lockedId, bestDetection)
+                tracks[lockedId] = 0 to newTrack
+                listOf(newTrack)
+            } else {
+                emptyList()
+            }
+        }
+
+        val match = selectLockedMatch(lockedTrack, detections, missCount)
+        val hasCandidate = match.detection != null
+        val isAmbiguous = hasCandidate &&
+            match.secondScore >= 0f &&
+            (match.bestScore - match.secondScore) < lockedScoreMargin
+        val isStrongEnough = hasCandidate && match.bestScore >= lockedScoreMin
+
+        return if (isStrongEnough && !isAmbiguous) {
+            val smoothedBox = smoothBox(lockedTrack.boundingBox, match.detection!!, 0.7f)
+            val updatedTrack = TrackedObject(lockedTrack.id, smoothedBox)
+            tracks[lockedId] = 0 to updatedTrack
+            listOf(updatedTrack)
+        } else {
+            val nextMiss = kotlin.math.min(missCount + 1, lockedMaxFrameMiss)
+            tracks[lockedId] = nextMiss to lockedTrack
+            val predictedTrack = if (nextMiss > 0) {
+                val prediction = predictNextPosition(lockedTrack, nextMiss)
+                TrackedObject(lockedTrack.id, prediction)
+            } else {
+                lockedTrack
+            }
+            listOf(predictedTrack)
+        }
+    }
+
+    private fun selectLockedMatch(
+        lockedTrack: TrackedObject,
+        detections: List<BoundingBox>,
+        missCount: Int
+    ): LockedMatch {
+        var bestDetection: BoundingBox? = null
+        var bestScore = -1f
+        var secondScore = -1f
+
+        val dynamicCenterThreshold = (lockedCenterDistanceBase + missCount * 0.01f)
+            .coerceAtMost(lockedCenterDistanceMax)
+
+        for (detection in detections) {
+            val iou = calculateIoU(lockedTrack.boundingBox, detection)
+            val centerDistance = calculateCenterDistance(lockedTrack.boundingBox, detection)
+            val areaChange = calculateRelativeAreaChange(lockedTrack.boundingBox, detection)
+
+            val centerScore = 1f - (centerDistance / dynamicCenterThreshold).coerceAtMost(1f)
+            val areaScore = 1f - (areaChange / lockedAreaChangeThreshold).coerceAtMost(1f)
+            val score = iou * 0.6f + centerScore * 0.3f + areaScore * 0.1f
+
+            if (score > bestScore) {
+                secondScore = bestScore
+                bestScore = score
+                bestDetection = detection
+            } else if (score > secondScore) {
+                secondScore = score
+            }
+        }
+
+        return LockedMatch(bestDetection, bestScore, secondScore)
+    }
+
+    private data class LockedMatch(
+        val detection: BoundingBox?,
+        val bestScore: Float,
+        val secondScore: Float
+    )
     
     private fun calculateIoU(boxA: BoundingBox, boxB: BoundingBox): Float {
         val xA = max(boxA.x1, boxB.x1)
@@ -157,6 +248,19 @@ class IoUTracker @Inject constructor() : ObjectTracker {
         val boxBArea = (boxB.x2 - boxB.x1) * (boxB.y2 - boxB.y1)
 
         return interArea / (boxAArea + boxBArea - interArea)
+    }
+
+    private fun calculateCenterDistance(boxA: BoundingBox, boxB: BoundingBox): Float {
+        val dx = boxA.cx - boxB.cx
+        val dy = boxA.cy - boxB.cy
+        return kotlin.math.sqrt(dx * dx + dy * dy)
+    }
+
+    private fun calculateRelativeAreaChange(boxA: BoundingBox, boxB: BoundingBox): Float {
+        val areaA = boxA.w * boxA.h
+        val areaB = boxB.w * boxB.h
+        if (areaA == 0f) return 1f
+        return kotlin.math.abs(areaA - areaB) / areaA
     }
     
     // 떨림 제거하고 마지막 위치 유지 (정지)
