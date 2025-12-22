@@ -6,6 +6,7 @@ import android.util.Log
 import com.animaltracking.ai.api.DetectionBox
 import com.animaltracking.ai.api.Detector
 import dagger.hilt.android.qualifiers.ApplicationContext
+import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.support.common.FileUtil
 import org.tensorflow.lite.support.common.ops.NormalizeOp
@@ -13,6 +14,8 @@ import org.tensorflow.lite.support.image.ImageProcessor
 import org.tensorflow.lite.support.image.TensorImage
 import org.tensorflow.lite.support.image.ops.ResizeOp
 import org.tensorflow.lite.support.image.ops.Rot90Op
+import org.tensorflow.lite.gpu.CompatibilityList
+import org.tensorflow.lite.gpu.GpuDelegate
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.inject.Inject
@@ -27,7 +30,6 @@ class TFLiteDetector @Inject constructor(
     private var inputImageWidth: Int = 0
     private var inputImageHeight: Int = 0
 
-    // Model file name (ensure this file exists in assets)
     private val modelPath = "yolo11.tflite"
 
     init {
@@ -38,39 +40,51 @@ class TFLiteDetector @Inject constructor(
         try {
             val model = FileUtil.loadMappedFile(context, modelPath)
             val options = Interpreter.Options()
-            options.setNumThreads(4) // Use 4 threads for CPU inference
+            options.setNumThreads(4)
             
-            // Check for GPU Delegate validation
+            var gpuDelegate: GpuDelegate? = null
+            
             try {
-                val compatList = org.tensorflow.lite.gpu.CompatibilityList()
+                val compatList = CompatibilityList()
                 if (compatList.isDelegateSupportedOnThisDevice) {
-                     // Use GPU Delegate
-                     // Note: GpuDelegate options can be customized if needed
-                     val delegateOptions = compatList.bestOptionsForThisDevice
-                     val gpuDelegate = org.tensorflow.lite.gpu.GpuDelegate(delegateOptions)
+                     gpuDelegate = GpuDelegate()
                      options.addDelegate(gpuDelegate)
-                     Log.i("TFLiteDetector", "GPU Delegate Enabled")
-                } else {
-                    Log.i("TFLiteDetector", "GPU Delegate Not Supported, using CPU")
                 }
             } catch (e: Exception) {
-                Log.w("TFLiteDetector", "Failed to initialize GPU Delegate", e)
+                Log.w("TFLiteDetector", "Failed to configure GPU Delegate: ${e.message}")
             }
 
-            interpreter = Interpreter(model, options)
+            try {
+                interpreter = Interpreter(model, options)
+            } catch (e: Exception) {
+                Log.e("TFLiteDetector", "Failed to initialize Interpreter with GPU options. Falling back to CPU.", e)
+                
+                if (gpuDelegate != null) {
+                    gpuDelegate.close()
+                    gpuDelegate = null
+                }
+                
+                val cpuOptions = Interpreter.Options()
+                cpuOptions.setNumThreads(4)
+                
+                interpreter = Interpreter(model, cpuOptions)
+            }
 
             val inputShape = interpreter?.getInputTensor(0)?.shape()
             inputImageHeight = inputShape?.get(1) ?: 320
             inputImageWidth = inputShape?.get(2) ?: 320
         } catch (e: Exception) {
-            Log.e("TFLiteDetector", "Error setting up interpreter", e)
+            Log.e("TFLiteDetector", "Fatal Error setting up interpreter: ${e.message}", e)
         }
     }
 
     override fun detect(image: Bitmap, rotation: Int): List<DetectionBox> {
-        if (interpreter == null) setupInterpreter()
+        if (interpreter == null) {
+            setupInterpreter()
+        }
         if (interpreter == null) return emptyList()
 
+        // 1. Preprocess
         val numRotation = rotation / 90
         val imageProcessor = ImageProcessor.Builder()
             .add(Rot90Op(-numRotation))
@@ -78,49 +92,59 @@ class TFLiteDetector @Inject constructor(
             .add(NormalizeOp(0f, 255f))
             .build()
             
-        var tensorImage = TensorImage(org.tensorflow.lite.DataType.FLOAT32)
+        var tensorImage = TensorImage(DataType.FLOAT32)
         tensorImage.load(image)
         tensorImage = imageProcessor.process(tensorImage)
 
+        // 2. Inference
         val outputTensor = interpreter!!.getOutputTensor(0)
-        val outputShape = outputTensor.shape()
-        
+        val outputShape = outputTensor.shape() // [1, channels, anchors]
         val channels = outputShape[1]
         val anchors = outputShape[2]
 
         val outputBuffer = ByteBuffer.allocateDirect(4 * channels * anchors)
         outputBuffer.order(ByteOrder.nativeOrder())
-
         interpreter?.run(tensorImage.buffer, outputBuffer)
 
         outputBuffer.rewind()
         val floatArray = FloatArray(channels * anchors)
         outputBuffer.asFloatBuffer().get(floatArray)
 
+        // 3. Post-process (Parsing & Filtering)
         val detectionBoxes = ArrayList<DetectionBox>()
 
         for (i in 0 until anchors) {
+            // YOLO output layout handling might vary, assuming [cx, cy, w, h, score, ...] per anchor
+            // Based on previous code: indexScore was at 4 * anchors + i, assuming planar or specific stride
+            // Let's stick to the previous indexing logic if it was correct for the model
+            
             val indexCx = i
             val indexCy = anchors + i
             val indexW = 2 * anchors + i
             val indexH = 3 * anchors + i
             val indexScore = 4 * anchors + i
             
-            val cx: Float = floatArray[indexCx]
-            val cy: Float = floatArray[indexCy]
-            val w: Float = floatArray[indexW]
-            val h: Float = floatArray[indexH]
-            val score: Float = floatArray[indexScore]
+            val score = floatArray[indexScore]
 
-            if (score > 0.5f) {
-                val halfW = w / 2.0f
-                val halfH = h / 2.0f
-                
-                // Normalized coordinates [0, 1]
-                val x1 = cx - halfW
-                val y1 = cy - halfH
-                val x2 = cx + halfW
-                val y2 = cy + halfH
+            // Filter by Confidence only (relaxed to 0.45 to catch back views)
+            if (score > 0.45f) {
+                var cx = floatArray[indexCx]
+                var cy = floatArray[indexCy]
+                var w = floatArray[indexW]
+                var h = floatArray[indexH]
+
+                // Normalize if needed (assuming model outputs < 1.0, but safety check)
+                if (cx > 1.0f || cy > 1.0f || w > 1.0f || h > 1.0f) {
+                     cx /= inputImageWidth
+                     cy /= inputImageHeight
+                     w /= inputImageWidth
+                     h /= inputImageHeight
+                }
+
+                val x1 = cx - w / 2f
+                val y1 = cy - h / 2f
+                val x2 = cx + w / 2f
+                val y2 = cy + h / 2f
 
                 detectionBoxes.add(
                     DetectionBox(
@@ -137,7 +161,7 @@ class TFLiteDetector @Inject constructor(
         return nms(detectionBoxes)
     }
 
-    private fun nms(boxes: List<DetectionBox>, iouThreshold: Float = 0.5f): List<DetectionBox> {
+    private fun nms(boxes: List<DetectionBox>, iouThreshold: Float = 0.3f): List<DetectionBox> {
         if (boxes.isEmpty()) return emptyList()
 
         val sortedBoxes = boxes.sortedByDescending { it.confidence }

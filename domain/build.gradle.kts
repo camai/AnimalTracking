@@ -1,6 +1,6 @@
 plugins {
-    id("primitive.android.library")
-    id("primitive.android.hilt")
+    alias(libs.plugins.primitive.android.library)
+    alias(libs.plugins.primitive.android.hilt)
 }
 
 android {

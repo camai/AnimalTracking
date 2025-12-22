@@ -1,6 +1,6 @@
 plugins {
-    id("primitive.android.library")
-    id("primitive.android.hilt")
+    alias(libs.plugins.primitive.android.library)
+    alias(libs.plugins.primitive.android.hilt)
 }
 
 android {
@@ -10,12 +10,10 @@ android {
 dependencies {
     implementation(project(":core"))
     implementation(project(":domain"))
+    implementation(project(":ai")) // Added AI module dependency
 
     implementation(libs.androidx.core.ktx)
-    implementation(libs.tensorflow.lite)
-    implementation(libs.tensorflow.lite.support)
-    implementation(libs.tensorflow.lite.task.vision)
-    
+
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
