@@ -45,7 +45,10 @@ internal fun TrackingRoute(
         hasPermission = uiState.hasCameraPermission,
         onPermissionResult = viewModel::onPermissionResult,
         onFrameReceived = viewModel::onFrameReceived,
-        trackedObjects = uiState.trackedObjects
+        trackedObjects = uiState.trackedObjects,
+        frameSize = uiState.frameSize,
+        lockedObjectId = uiState.lockedObjectId,
+        onObjectClicked = viewModel::toggleObjectLock
     )
 }
 
@@ -54,7 +57,10 @@ private fun TrackingScreen(
     hasPermission: Boolean,
     onPermissionResult: (Boolean) -> Unit,
     onFrameReceived: (androidx.camera.core.ImageProxy) -> Unit,
-    trackedObjects: List<com.animaltracking.domain.model.TrackedObject> = emptyList()
+    trackedObjects: List<com.animaltracking.domain.model.TrackedObject> = emptyList(),
+    frameSize: Pair<Int, Int>? = null,
+    lockedObjectId: Int? = null,
+    onObjectClicked: (com.animaltracking.domain.model.TrackedObject) -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -81,7 +87,13 @@ private fun TrackingScreen(
             .fillMaxSize()) {
             if (hasPermission) {
                 CameraPreview(onFrameReceived = onFrameReceived)
-                com.animaltracking.feature.tracking.ui.BoundingBoxOverlay(trackedObjects = trackedObjects)
+                com.animaltracking.feature.tracking.ui.BoundingBoxOverlay(
+                    trackedObjects = trackedObjects,
+                    imageWidth = frameSize?.first ?: 320,
+                    imageHeight = frameSize?.second ?: 320,
+                    lockedObjectId = lockedObjectId,
+                    onObjectClick = onObjectClicked
+                )
             } else {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -103,48 +115,57 @@ private fun CameraPreview(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    val previewView = androidx.compose.runtime.remember { PreviewView(context) }
+
     AndroidView(
-        factory = { ctx ->
-            PreviewView(ctx).apply {
+        factory = {
+            previewView.apply {
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
-                scaleType = PreviewView.ScaleType.FILL_START
+                scaleType = PreviewView.ScaleType.FILL_CENTER
             }
         },
         modifier = Modifier.fillMaxSize(),
-        update = { previewView ->
-            val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-            cameraProviderFuture.addListener({
-                val cameraProvider = cameraProviderFuture.get()
-
-                val preview = Preview.Builder().build().apply {
-                    setSurfaceProvider(previewView.surfaceProvider)
-                }
-
-                val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
-                val imageAnalysis = ImageAnalysis.Builder()
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .build()
-
-                imageAnalysis.setAnalyzer(Executors.newSingleThreadExecutor()) { imageProxy ->
-                    onFrameReceived(imageProxy)
-                }
-
-                try {
-                    cameraProvider.unbindAll()
-                    cameraProvider.bindToLifecycle(
-                        /* lifecycleOwner = */ lifecycleOwner,
-                        /* cameraSelector = */ cameraSelector,
-                        /* ...useCases = */ preview,
-                        imageAnalysis
-                    )
-                } catch (e: Exception) {
-                    Log.e("TrackingScreen", "Use case binding failed", e)
-                }
-            }, ContextCompat.getMainExecutor(context))
+        update = { 
+            // View update logic if needed (e.g. dynamic layout params), 
+            // but Camera binding should NOT be here.
         }
     )
+
+    LaunchedEffect(lifecycleOwner) {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+        cameraProviderFuture.addListener({
+            val cameraProvider = cameraProviderFuture.get()
+
+            val preview = Preview.Builder().build().apply {
+                setSurfaceProvider(previewView.surfaceProvider)
+            }
+
+            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+            val imageAnalysis = ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                .setTargetAspectRatio(androidx.camera.core.AspectRatio.RATIO_16_9)
+                .build()
+
+            imageAnalysis.setAnalyzer(Executors.newSingleThreadExecutor()) { imageProxy ->
+                onFrameReceived(imageProxy)
+            }
+
+            try {
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(
+                    lifecycleOwner,
+                    cameraSelector,
+                    preview,
+                    imageAnalysis
+                )
+            } catch (e: Exception) {
+                Log.e("TrackingScreen", "Use case binding failed", e)
+            }
+        }, ContextCompat.getMainExecutor(context))
+    }
 }

@@ -3,22 +3,31 @@ package com.animaltracking.convention
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalogsExtension
+import org.gradle.kotlin.dsl.apply
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.getByType
 
 class AndroidHiltConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
-            with(pluginManager) {
-                apply("com.google.dagger.hilt.android")
-                apply("com.google.devtools.ksp")
-            }
-
-            val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
+            apply(plugin = "com.google.devtools.ksp")
 
             dependencies {
-                "implementation"(libs.findLibrary("hilt.android").get())
                 "ksp"(libs.findLibrary("hilt.compiler").get())
+            }
+
+            // Add support for Jvm Module, base on org.jetbrains.kotlin.jvm
+            pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
+                dependencies {
+                    "implementation"(libs.findLibrary("hilt.core").get())
+                }
+            }
+
+            pluginManager.withPlugin("com.android.base") {
+                apply(plugin = "dagger.hilt.android.plugin")
+                dependencies {
+                    "implementation"(libs.findLibrary("hilt.android").get())
+                }
             }
         }
     }
