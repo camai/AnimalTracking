@@ -9,6 +9,6 @@ android {
 
 dependencies {
     implementation(libs.kotlinx.coroutines.android)
-    implementation(project(":core"))
+    implementation(project(":core:core-tracking"))
     testImplementation(libs.junit)
 }

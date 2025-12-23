@@ -17,8 +17,10 @@ dependencyResolutionManagement {
 
 rootProject.name = "AnimalTracking"
 include(":app")
-include(":core")
+include(":core:core-android")
+include(":core:core-tracking")
 include(":domain")
 include(":data")
 include(":ai")
-include(":feature:tracking")
+include(":feature:camera")
+include(":feature:horse-tracking")
