@@ -10,7 +10,8 @@ android {
 }
 
 dependencies {
-    implementation(project(":core"))
+    implementation(project(":core:core-android"))
+    implementation(project(":core:core-tracking"))
     implementation(project(":domain"))
     implementation(project(":data"))
     implementation(project(":feature:camera"))

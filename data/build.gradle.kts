@@ -8,7 +8,8 @@ android {
 }
 
 dependencies {
-    implementation(project(":core"))
+    implementation(project(":core:core-android"))
+    implementation(project(":core:core-tracking"))
     implementation(project(":domain"))
     implementation(project(":ai")) // AI 모듈 의존성 추가
 

@@ -1,4 +1,4 @@
-package com.animaltracking.core.util
+package com.animaltracking.core.android.util
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory

@@ -1,4 +1,4 @@
-package com.animaltracking.domain.model
+package com.animaltracking.core.tracking.model
 
 data class BoundingBox(
     val x1: Float,

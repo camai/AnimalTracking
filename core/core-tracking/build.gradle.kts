@@ -4,11 +4,12 @@ plugins {
 }
 
 android {
-    namespace = "com.animaltracking.domain"
+    namespace = "com.animaltracking.core.tracking"
 }
 
 dependencies {
     implementation(libs.kotlinx.coroutines.android)
-    implementation(project(":core:core-tracking"))
+    
+    // Testing
     testImplementation(libs.junit)
 }

@@ -4,7 +4,8 @@ import android.util.Log
 import androidx.camera.core.ImageProxy
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.animaltracking.core.util.BitmapUtils
+import com.animaltracking.core.android.util.BitmapUtils
+import com.animaltracking.core.android.util.ImageFrameMapper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,8 +17,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.animaltracking.core.tracking.model.TrackedObject
 import com.animaltracking.domain.error.DomainError
-import com.animaltracking.domain.model.TrackedObject
 import com.animaltracking.domain.result.DomainResult
 import com.animaltracking.domain.usecase.TrackObjectsUseCase
 import java.util.concurrent.atomic.AtomicBoolean
@@ -40,7 +41,7 @@ class TrackingViewModel @Inject constructor(
     private val isProcessing = AtomicBoolean(false)
     private var cachedBitmap: android.graphics.Bitmap? = null
     private var frameCount = 0
-    private val processEveryNthFrame = 1
+    private val processEveryNthFrame = 3  // 개선: 1 → 3 (30fps → 10fps 처리)
 
     fun onFrameReceived(imageProxy: ImageProxy) {
         frameCount++
@@ -62,20 +63,21 @@ class TrackingViewModel @Inject constructor(
 
                 if (bitmap != null) {
                     val rotation = imageProxy.imageInfo.rotationDegrees
-                    when (val trackingResult = trackObjectsUseCase.track(bitmap, rotation)) {
+                    val frameWidth = if (rotation == 90 || rotation == 270) {
+                        imageProxy.height
+                    } else {
+                        imageProxy.width
+                    }
+                    val frameHeight = if (rotation == 90 || rotation == 270) {
+                        imageProxy.width
+                    } else {
+                        imageProxy.height
+                    }
+                    val imageFrame = ImageFrameMapper.fromBitmap(bitmap, rotation)
+                    when (val trackingResult = trackObjectsUseCase.track(imageFrame)) {
                         is DomainResult.Success -> {
                             val trackedObjects = trackingResult.data.trackedObjects
                             val lockedId = trackingResult.data.lockedObjectId
-                            val frameWidth = if (rotation == 90 || rotation == 270) {
-                                imageProxy.height
-                            } else {
-                                imageProxy.width
-                            }
-                            val frameHeight = if (rotation == 90 || rotation == 270) {
-                                imageProxy.width
-                            } else {
-                                imageProxy.height
-                            }
 
                             viewModelScope.launch(Dispatchers.Main) {
                                 _uiState.value = _uiState.value.copy(

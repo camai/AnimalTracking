@@ -8,7 +8,7 @@ android {
 }
 
 dependencies {
-    implementation(project(":core"))
+    implementation(project(":core:core-android"))
 
     // TensorFlow Lite
     implementation(libs.tensorflow.lite)

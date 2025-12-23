@@ -1,10 +1,10 @@
 package com.animaltracking.domain.usecase
 
-import android.graphics.Bitmap
+import com.animaltracking.core.tracking.model.TrackedObject
+import com.animaltracking.core.tracking.repository.ObjectTracker
 import com.animaltracking.domain.error.DomainError
-import com.animaltracking.domain.model.TrackedObject
+import com.animaltracking.domain.model.ImageFrame
 import com.animaltracking.domain.repository.ObjectDetector
-import com.animaltracking.domain.repository.ObjectTracker
 import com.animaltracking.domain.result.DomainResult
 import javax.inject.Inject
 
@@ -13,10 +13,9 @@ class TrackObjectsUseCaseImpl @Inject constructor(
     private val objectTracker: ObjectTracker
 ) : TrackObjectsUseCase {
     override fun track(
-        image: Bitmap,
-        rotation: Int
+        imageFrame: ImageFrame
     ): DomainResult<TrackingResult, DomainError> {
-        return when (val detectionResult = objectDetector.detect(image, rotation)) {
+        return when (val detectionResult = objectDetector.detect(imageFrame)) {
             is DomainResult.Success -> {
                 try {
                     val trackedObjects = objectTracker.track(detectionResult.data)

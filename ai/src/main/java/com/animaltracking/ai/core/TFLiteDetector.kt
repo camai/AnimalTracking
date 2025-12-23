@@ -126,8 +126,8 @@ class TFLiteDetector @Inject constructor(
             
             val score = floatArray[indexScore]
 
-            // 신뢰도로만 필터링(후면 탐지를 위해 0.45로 완화)
-            if (score > 0.45f) {
+            // 신뢰도로만 필터링 (후면/원거리 탐지를 위해 0.30으로 대폭 완화)
+            if (score > 0.30f) {
                 var cx = floatArray[indexCx]
                 var cy = floatArray[indexCy]
                 var w = floatArray[indexW]

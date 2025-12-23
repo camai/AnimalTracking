@@ -12,8 +12,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
+import com.animaltracking.core.tracking.model.TrackedObject
 import com.animaltracking.domain.error.DomainError
-import com.animaltracking.domain.model.TrackedObject
 import com.animaltracking.feature.camera.CameraPreviewWithPermission
 import com.animaltracking.feature.horsetracking.R
 import com.animaltracking.feature.horsetracking.ui.BoundingBoxOverlay
@@ -22,6 +22,7 @@ import com.animaltracking.feature.horsetracking.viewmodel.TrackingViewModel
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
+@Suppress("LocalContextGetResourceValueCall")
 internal fun TrackingRoute(
     viewModel: TrackingViewModel = hiltViewModel()
 ) {

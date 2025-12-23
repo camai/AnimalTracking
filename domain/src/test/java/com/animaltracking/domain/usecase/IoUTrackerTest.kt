@@ -1,6 +1,7 @@
 package com.animaltracking.domain.usecase
 
-import com.animaltracking.domain.model.BoundingBox
+import com.animaltracking.core.tracking.algorithm.IoUTracker
+import com.animaltracking.core.tracking.model.BoundingBox
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test

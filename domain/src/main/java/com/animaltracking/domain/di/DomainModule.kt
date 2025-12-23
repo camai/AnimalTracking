@@ -1,7 +1,7 @@
 package com.animaltracking.domain.di
 
-import com.animaltracking.domain.repository.ObjectTracker
-import com.animaltracking.domain.usecase.IoUTracker
+import com.animaltracking.core.tracking.algorithm.IoUTracker
+import com.animaltracking.core.tracking.repository.ObjectTracker
 import com.animaltracking.domain.usecase.TrackObjectsUseCase
 import com.animaltracking.domain.usecase.TrackObjectsUseCaseImpl
 import dagger.Binds
