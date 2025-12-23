@@ -1,5 +1,6 @@
 package com.animaltracking.domain.usecase
 
+import android.util.Log
 import com.animaltracking.core.tracking.model.TrackedObject
 import com.animaltracking.core.tracking.repository.ObjectTracker
 import com.animaltracking.domain.error.DomainError
@@ -19,12 +20,12 @@ class TrackObjectsUseCaseImpl @Inject constructor(
             is DomainResult.Success -> {
                 try {
                     val detections = detectionResult.data
-                    println("[TrackObjectsUseCase] Detections: ${detections.size} objects, confidences=[${detections.joinToString { "%.2f".format(it.cnf) }}]")
+                    Log.d("[TrackObjectsUseCase]","Detections: ${detections.size} objects, confidences=[${detections.joinToString { "%.2f".format(it.cnf) }}]")
                     
                     val trackedObjects = objectTracker.track(detections)
                     val lockedObjectId = objectTracker.getLockId()
                     
-                    println("[TrackObjectsUseCase] Tracked: ${trackedObjects.size} objects, locked=${lockedObjectId}")
+                    Log.d("[TrackObjectsUseCase]","Tracked: ${trackedObjects.size} objects, locked=${lockedObjectId}")
                     
                     DomainResult.Success(
                         TrackingResult(

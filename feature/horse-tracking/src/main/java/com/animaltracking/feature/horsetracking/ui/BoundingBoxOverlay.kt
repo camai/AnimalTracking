@@ -2,6 +2,7 @@ package com.animaltracking.feature.horsetracking.ui
 
 import android.annotation.SuppressLint
 import android.graphics.Paint
+import android.util.Log
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -59,21 +60,21 @@ fun BoundingBoxOverlay(
                         val normX = (tapX - offsetX) / scaledImageWidth
                         val normY = (tapY - offsetY) / scaledImageHeight
 
-                        android.util.Log.d("TrackingOverlay", "Tap: ($tapX, $tapY) -> Norm: ($normX, $normY)")
-                        android.util.Log.d("TrackingOverlay", "ImageArea: Offset($offsetX, $offsetY), Size($scaledImageWidth, $scaledImageHeight)")
+                        Log.d("TrackingOverlay", "Tap: ($tapX, $tapY) -> Norm: ($normX, $normY)")
+                        Log.d("TrackingOverlay", "ImageArea: Offset($offsetX, $offsetY), Size($scaledImageWidth, $scaledImageHeight)")
 
                         // 터치된 객체 찾기(겹칠 경우 상단 우선으로 역순 탐색)
                         val touchedObject = trackedObjects.lastOrNull { obj ->
                             val box = obj.boundingBox
                             val hit = normX >= box.x1 && normX <= box.x2 && normY >= box.y1 && normY <= box.y2
-                            if (hit) android.util.Log.d("TrackingOverlay", "Hit Object: ${obj.id}")
+                            if (hit) Log.d("TrackingOverlay", "Hit Object: ${obj.id}")
                             hit
                         }
 
                         if (touchedObject != null) {
                             onObjectClick(touchedObject)
                         } else {
-                             android.util.Log.d("TrackingOverlay", "No object hit")
+                             Log.d("TrackingOverlay", "No object hit")
                         }
                     }
                 }

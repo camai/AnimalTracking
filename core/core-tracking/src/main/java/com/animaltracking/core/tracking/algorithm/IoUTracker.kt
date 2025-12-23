@@ -1,5 +1,6 @@
 package com.animaltracking.core.tracking.algorithm
 
+import android.util.Log
 import com.animaltracking.core.tracking.model.BoundingBox
 import com.animaltracking.core.tracking.model.TrackedObject
 import com.animaltracking.core.tracking.repository.ObjectTracker
@@ -23,14 +24,14 @@ class IoUTracker @Inject constructor() : ObjectTracker {
     private val lockedDesperateCenterScore = 0.45f
     private val lockedAreaChangeThreshold = 1.3f // 상대 면적 변화 허용치(1.3 = 30% 차이)
     private val lockedAreaChangeMax = 2.0f       // 면적 변화 최대치
-    private val lockedScoreMin = 0.25f           // [튜닝] 더 엄격한 매칭 점수
+    private val lockedScoreMin = 0.25f           // 더 엄격한 매칭 점수
     private val lockedScoreMargin = 0.12f
 
     private val maxFrameMiss = 15 // 단기 미스 허용(빠른 복구)
     private val lockedMaxFrameMiss = 80 // 락 유지 시간 확대
 
     // 안전 제한값(예측 드리프트 방지)
-    private val maxVelocity = 0.02f              // [수정] 프레임당 최대 이동 제한
+    private val maxVelocity = 0.02f              // 프레임당 최대 이동 제한
     private var lockId: Int? = null
     
     // 자동 락 쿨다운(타임아웃 직후 스위칭 방지)
@@ -120,7 +121,7 @@ class IoUTracker @Inject constructor() : ObjectTracker {
                  val newTrack = TrackedObject(newId, bestDetection)
                  tracks[newId] = 0 to newTrack
                  newTrackedObjects.add(newTrack)
-                 println("[IoUTracker] Initial Track: Created ID=$newId with confidence=${bestDetection.cnf}")
+                 Log.d("[IoUTracker]","Initial Track: Created ID=$newId with confidence=${bestDetection.cnf}")
              }
         } else {
               // 노이즈 방지: 높은 신뢰도만 추가
@@ -130,7 +131,7 @@ class IoUTracker @Inject constructor() : ObjectTracker {
                      val newTrack = TrackedObject(newId, detection)
                      tracks[newId] = 0 to newTrack
                      newTrackedObjects.add(newTrack)
-                     println("[IoUTracker] New Track: Added ID=$newId with confidence=${detection.cnf}")
+                     Log.d("[IoUTracker]","New Track: Added ID=$newId with confidence=${detection.cnf}")
                  }
              }
         }
@@ -161,10 +162,10 @@ class IoUTracker @Inject constructor() : ObjectTracker {
                 val requiredConfidence = if (isTimeoutUnlock) 0.9f else 0.8f
                 if (bestCandidate != null && bestCandidate.boundingBox.cnf > requiredConfidence) {
                     lockId = bestCandidate.id
-                    println("[IoUTracker] Auto-Lock: Locked onto horse ID=${bestCandidate.id} with confidence=${bestCandidate.boundingBox.cnf} (after ${timeSinceUnlock}ms cooldown)")
+                    Log.d("[IoUTracker]","Auto-Lock: Locked onto horse ID=${bestCandidate.id} with confidence=${bestCandidate.boundingBox.cnf} (after ${timeSinceUnlock}ms cooldown)")
                 }
             } else {
-                println("[IoUTracker] Auto-Lock: Skipping due to cooldown (${timeSinceUnlock}ms < ${effectiveCooldown}ms, reason=${lastUnlockReason})")
+                Log.d("[IoUTracker]", "Auto-Lock: Skipping due to cooldown (${timeSinceUnlock}ms < ${effectiveCooldown}ms, reason=${lastUnlockReason})")
             }
         }
 
@@ -190,7 +191,7 @@ class IoUTracker @Inject constructor() : ObjectTracker {
         val missCount = lockedEntry?.first ?: 0
 
         if (lockedTrack != null) {
-            println("[IoUTracker] Frame Start. ID=$lockedId Miss=$missCount VX=${lockedTrack.vx} VY=${lockedTrack.vy}")
+            Log.d("[IoUTracker]", "Frame Start. ID=$lockedId Miss=$missCount VX=${lockedTrack.vx} VY=${lockedTrack.vy}")
         }
 
         if (lockedTrack == null) {
@@ -218,7 +219,7 @@ class IoUTracker @Inject constructor() : ObjectTracker {
         val isStrongEnough = hasCandidate && match.bestScore >= lockedScoreMin
 
         return if (isStrongEnough && !isAmbiguous) {
-            println("[IoUTracker] MATCH FOUND! Score=${match.bestScore}")
+            Log.d("[IoUTracker]", "MATCH FOUND! Score=${match.bestScore}")
             // 3. 예측값을 기준(baseline)으로 스무딩 업데이트 수행
             // 이렇게 하면 이전 위치로 "되돌아가는(snapping back)" 현상을 방지합니다.
             val updatedTrack = createUpdatedTrack(
@@ -234,9 +235,9 @@ class IoUTracker @Inject constructor() : ObjectTracker {
             listOf(updatedTrack)
         } else {
             val nextMiss = missCount + 1
-            println("[IoUTracker] MISSING... Count=$nextMiss, availableDetections=${detections.size}")
+            Log.d("[IoUTracker]", "MISSING... Count=$nextMiss, availableDetections=${detections.size}")
             if (detections.isNotEmpty()) {
-                println("[IoUTracker] Available detection confidences: [${detections.joinToString { "%.2f".format(it.cnf) }}]")
+                Log.d("[IoUTracker]", "Available detection confidences: [${detections.joinToString { "%.2f".format(it.cnf) }}]")
             } 
             
             // 지속적인 단일 말 추적을 위한 더 보수적인 멈춤(Stuck) 감지
@@ -262,7 +263,7 @@ class IoUTracker @Inject constructor() : ObjectTracker {
                     isStuck -> "Stuck(Speed=${"%.5f".format(speed)})"
                     else -> "Timeout"
                 }
-                println("[IoUTracker] Drop Lock. Reason=$reason")
+                Log.d("[IoUTracker]", "Drop Lock. Reason=$reason")
                 
                 // 쿨다운 로직을 위해 언락 시간과 사유 기록
                 lastUnlockTime = System.currentTimeMillis()
@@ -314,7 +315,7 @@ class IoUTracker @Inject constructor() : ObjectTracker {
         }
         val minIoUThreshold = if (singleCandidateMode) 0f else dynamicMinIoU
         val effectiveMinIoUThreshold = if (multiCandidateMode) {
-            kotlin.math.max(minIoUThreshold, lockedMultiCandidateMinIoU)
+            max(minIoUThreshold, lockedMultiCandidateMinIoU)
         } else {
             minIoUThreshold
         }
@@ -329,7 +330,7 @@ class IoUTracker @Inject constructor() : ObjectTracker {
 
             // 1. 중심 거리 체크
             if (centerDistance > centerThreshold) {
-                if (missCount > 20) println("$logPrefix [IoUTracker] REJECT: Dist($centerDistance) > Thresh($centerThreshold)")
+                if (missCount > 20) Log.d("[IoUTracker]","$logPrefix REJECT: Dist($centerDistance) > Thresh($centerThreshold)")
                 continue
             }
             
@@ -338,16 +339,16 @@ class IoUTracker @Inject constructor() : ObjectTracker {
             val shrinkBoost = if (areaRatio < 1f) 1.4f else 1.0f
             val effectiveAreaThreshold = dynamicAreaThreshold * shrinkBoost * if (singleCandidateMode) 1.6f else 1.0f
             if (areaChange > effectiveAreaThreshold) {
-                if (missCount > 20) println("$logPrefix [IoUTracker]  REJECT: AreaChange($areaChange) > Thresh($effectiveAreaThreshold)")
+                if (missCount > 20) Log.d("[IoUTracker]", "$logPrefix REJECT: AreaChange($areaChange) > Thresh($effectiveAreaThreshold)")
                continue 
             }
             
             // 3. 크기 비율 체크 (배경 거부)
             val areaRatioCheck = areaRatio
             
-            // [수정]: 로그상 유효한 타겟이 0.44에서 거부되어서 0.5 -> 0.3으로 완화함
+            // 로그상 유효한 타겟이 0.44에서 거부되어서 0.5 -> 0.3으로 완화함
             if (areaRatioCheck < 0.3f) {
-                if (missCount > 20) println("$logPrefix [IoUTracker] REJECT: Too Small (Ratio=$areaRatioCheck < 0.3)")
+                if (missCount > 20) Log.d("[IoUTracker]", "$logPrefix REJECT: Too Small (Ratio=$areaRatioCheck < 0.3)")
                 continue 
             }
 
@@ -356,7 +357,7 @@ class IoUTracker @Inject constructor() : ObjectTracker {
             
             var score = iou * 0.5f + centerScore * 0.4f + areaScore * 0.1f
 
-            // [튜닝 3]: 작은 물체 -> 크고 선명한 물체로 전환 시 점수 부스트
+            // 작은 물체 -> 크고 선명한 물체로 전환 시 점수 부스트
             if (isSmallTarget) {
                 val isLargeCandidate = (detection.w * detection.h) > (predictedBox.w * predictedBox.h) * 2.0f
                 val isHighConf = detection.cnf > 0.8f
@@ -364,7 +365,7 @@ class IoUTracker @Inject constructor() : ObjectTracker {
 
                 if (isLargeCandidate && isHighConf && isCloseEnough && singleCandidateMode) {
                     score += 0.5f
-                    println("[IoUTracker] BOOST: Switching from Small to Large/Clear Target!")
+                    Log.d("[IoUTracker]", "BOOST: Switching from Small to Large/Clear Target!")
                 }
             }
             
@@ -384,15 +385,15 @@ class IoUTracker @Inject constructor() : ObjectTracker {
                     centerScore > lockedDesperateCenterScore &&
                     areaRatioCheck > 0.25f
                 ) {
-                    // 절박 매칭: IoU가 0이지만, 신뢰도가 높고 매우 가까움.
+                    // IoU가 0이지만, 신뢰도가 높고 매우 가까움.
                     // 허용함!
-                    if (missCount > 20) println("$logPrefix DESPERATE MATCH! Score=$score IoU=$iou")
+                    if (missCount > 20) Log.d("[IoUTracker]", "$logPrefix DESPERATE MATCH! Score=$score IoU=$iou")
                 } else {
-                    if (missCount > 20) println("$logPrefix SCORE($score) BUT IoU($iou) < Min($dynamicMinIoU)")
+                    if (missCount > 20) Log.d("[IoUTracker]", "$logPrefix SCORE($score) BUT IoU($iou) < Min($dynamicMinIoU)")
                     continue
                 }
             } else {
-                 if (missCount > 20) println("$logPrefix MATCH? Score=$score IoU=$iou")
+                 if (missCount > 20) Log.d("[IoUTracker]", "$logPrefix MATCH? Score=$score IoU=$iou")
             }
 
             if (score > bestScore) {
@@ -440,7 +441,7 @@ class IoUTracker @Inject constructor() : ObjectTracker {
     }
 
     private fun predictNextPosition(track: TrackedObject, missFrames: Int): BoundingBox {
-        // [수정]: 속도 감쇠 및 거리 제한을 적용한 예측 기능 개선
+        // 속도 감쇠 및 거리 제한을 적용한 예측 기능
         
         // 과도한 움직임을 방지하기 위해 속도 캡(limit) 적용
         val cappedVx = track.vx.coerceIn(-maxVelocity, maxVelocity)
@@ -451,13 +452,13 @@ class IoUTracker @Inject constructor() : ObjectTracker {
         val decayFactor = decayRate.pow(missFrames)
         
         // 예측이 합리적인 거리 내에 머물도록 제한 (과도한 드리프트 방지) - 축소됨
-        val maxPredictionDistance = 0.06f // [수정]: 0.12f에서 0.06f로 축소 (화면의 최대 6% 움직임)
+        val maxPredictionDistance = 0.06f //  0.12f에서 0.06f로 축소 (화면의 최대 6% 움직임)
         
         val rawDx = cappedVx * missFrames * decayFactor
         val rawDy = cappedVy * missFrames * decayFactor
         
         // 드리프트 방지를 위해 총 변위 제한
-        val displacementMagnitude = kotlin.math.sqrt(rawDx * rawDx + rawDy * rawDy)
+        val displacementMagnitude = sqrt(rawDx * rawDx + rawDy * rawDy)
         val totalDx = if (displacementMagnitude > maxPredictionDistance) {
             rawDx * (maxPredictionDistance / displacementMagnitude)
         } else rawDx
@@ -466,7 +467,7 @@ class IoUTracker @Inject constructor() : ObjectTracker {
             rawDy * (maxPredictionDistance / displacementMagnitude)
         } else rawDy
         
-        println("[IoUTracker] Prediction: Miss=$missFrames TotalDX=$totalDx TotalDY=$totalDy (Decay=${"%.3f".format(decayFactor)})")
+        Log.d("[IoUTracker]", "Prediction: Miss=$missFrames TotalDX=$totalDx TotalDY=$totalDy (Decay=${"%.3f".format(decayFactor)})")
 
         val box = track.boundingBox
         val predictedCx = box.cx + totalDx
@@ -534,7 +535,7 @@ class IoUTracker @Inject constructor() : ObjectTracker {
         val finalVx = smoothedVx.coerceIn(-maxVelocity, maxVelocity)
         val finalVy = smoothedVy.coerceIn(-maxVelocity, maxVelocity)
         
-        println("[IoUTracker] Updated Track. InstV=($instantaneousVx, $instantaneousVy) SmoothedV=($finalVx, $finalVy)")
+        Log.d("[IoUTracker]", "[IoUTracker] Updated Track. InstV=($instantaneousVx, $instantaneousVy) SmoothedV=($finalVx, $finalVy)")
         
         return TrackedObject(id, smoothedBox, System.currentTimeMillis(), finalVx, finalVy)
     }
@@ -599,9 +600,9 @@ class IoUTracker @Inject constructor() : ObjectTracker {
                           nearbyDetections.size >= 2 // 예측 위치 근처에 여러 옵션 존재
         
         if (shouldSwitch) {
-            println("[IoUTracker] OverlapSwitch: Detected overlap scenario - ${nearbyDetections.size} nearby horses, ${clusterCount} clusters, best cnf=${bestCandidate?.cnf}")
+            Log.d("[IoUTracker]", "OverlapSwitch: Detected overlap scenario - ${nearbyDetections.size} nearby horses, $clusterCount clusters, best cnf=${bestCandidate.cnf}")
         } else if (missCount > 30) {
-            println("[IoUTracker] OverlapSwitch: NO overlap detected - nearby=${nearbyDetections.size}, clusters=${clusterCount}, totalDetections=${detections.size}")
+            Log.d("[IoUTracker]", "OverlapSwitch: NO overlap detected - nearby=${nearbyDetections.size}, clusters=${clusterCount}, totalDetections=${detections.size}")
         }
         
         return shouldSwitch

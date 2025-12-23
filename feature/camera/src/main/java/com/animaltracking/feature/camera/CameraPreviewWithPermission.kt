@@ -6,6 +6,7 @@ import android.util.Log
 import android.view.ViewGroup
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.AspectRatio
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -109,7 +110,11 @@ private fun CameraPreview(
             val imageAnalysis = ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
-                .setTargetAspectRatio(androidx.camera.core.AspectRatio.RATIO_16_9)
+                // 16:9 비율 고정: ML 모델 최적화 및 다양한 디바이스에서 일관된 해상도 보장
+                // - TensorFlow Lite 모델이 특정 입력 크기에 최적화됨
+                // - 디바이스별 화면 비율 차이로 인한 성능 변동 방지
+                // - 표준 비율 사용으로 카메라 하드웨어 최적화 활용
+                .setTargetAspectRatio(AspectRatio.RATIO_16_9)
                 .build()
 
             imageAnalysis.setAnalyzer(Executors.newSingleThreadExecutor()) { imageProxy ->

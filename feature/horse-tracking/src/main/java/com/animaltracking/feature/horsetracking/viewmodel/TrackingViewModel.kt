@@ -41,7 +41,8 @@ class TrackingViewModel @Inject constructor(
     private val isProcessing = AtomicBoolean(false)
     private var cachedBitmap: android.graphics.Bitmap? = null
     private var frameCount = 0
-    private val processEveryNthFrame = 3  // 개선: 1 → 3 (30fps → 10fps 처리)
+    // 매 3프레임마다 처리하여 성능 최적화 (30fps -> 10fps 처리로 CPU/GPU 부하 감소)
+    private val processEveryNthFrame = 3
 
     fun onFrameReceived(imageProxy: ImageProxy) {
         frameCount++
