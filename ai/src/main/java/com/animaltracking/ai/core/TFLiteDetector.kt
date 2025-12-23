@@ -30,7 +30,7 @@ class TFLiteDetector @Inject constructor(
     private var inputImageWidth: Int = 0
     private var inputImageHeight: Int = 0
 
-    private val modelPath = "yolo11.tflite"
+    private val modelPath = "best_float32.tflite"
 
     init {
         setupInterpreter()
@@ -71,8 +71,10 @@ class TFLiteDetector @Inject constructor(
             }
 
             val inputShape = interpreter?.getInputTensor(0)?.shape()
-            inputImageHeight = inputShape?.get(1) ?: 320
-            inputImageWidth = inputShape?.get(2) ?: 320
+            inputImageHeight = inputShape?.get(1) ?: 640
+            inputImageWidth = inputShape?.get(2) ?: 640
+            
+            Log.i("TFLiteDetector", "Model Input Shape: [${inputShape?.joinToString(", ")}]. Using: ${inputImageWidth}x${inputImageHeight}")
         } catch (e: Exception) {
             Log.e("TFLiteDetector", "Fatal Error setting up interpreter: ${e.message}", e)
         }

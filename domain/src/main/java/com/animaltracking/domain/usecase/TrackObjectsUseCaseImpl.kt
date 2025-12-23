@@ -18,8 +18,14 @@ class TrackObjectsUseCaseImpl @Inject constructor(
         return when (val detectionResult = objectDetector.detect(imageFrame)) {
             is DomainResult.Success -> {
                 try {
-                    val trackedObjects = objectTracker.track(detectionResult.data)
+                    val detections = detectionResult.data
+                    println("[TrackObjectsUseCase] Detections: ${detections.size} objects, confidences=[${detections.joinToString { "%.2f".format(it.cnf) }}]")
+                    
+                    val trackedObjects = objectTracker.track(detections)
                     val lockedObjectId = objectTracker.getLockId()
+                    
+                    println("[TrackObjectsUseCase] Tracked: ${trackedObjects.size} objects, locked=${lockedObjectId}")
+                    
                     DomainResult.Success(
                         TrackingResult(
                             trackedObjects = trackedObjects,
