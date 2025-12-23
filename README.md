@@ -1,6 +1,11 @@
 # Animal Tracking Application
 
+
 CameraX와 TensorFlow Lite를 활용한 실시간 동물(말) 추적 안드로이드 애플리케이션입니다.
+
+<div align="center">
+  <video src="demo/demo.mp4" width="80%" controls autoplay loop muted></video>
+</div>
 
 ##  아키텍처 (Architecture)
  
