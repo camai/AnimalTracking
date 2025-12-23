@@ -334,13 +334,24 @@ class IoUTracker @Inject constructor() : ObjectTracker {
                 continue
             }
             
+
             // 2. 면적 변화 체크 (축소 허용)
+            // 급격한 줌인/아웃이나 움직임으로 인해 면적이 크게 변할 수 있습니다.
+            // 신뢰도가 매우 높다면(>0.8), 크기가 달라도 같은 물체일 확률이 높으므로 제한을 완화합니다.
             val areaRatio = (detection.w * detection.h) / (predictedBox.w * predictedBox.h)
-            val shrinkBoost = if (areaRatio < 1f) 1.4f else 1.0f
+            val shrinkBoost = if (areaRatio < 1f) 1.4f else 1.0f // 축소되는 경우는 좀 더 관대하게 허용
             val effectiveAreaThreshold = dynamicAreaThreshold * shrinkBoost * if (singleCandidateMode) 1.6f else 1.0f
+            
+            // [수정] 고신뢰도 탐지의 경우 면적 체크를 우회(Bypass)합니다.
+            val isHighConfidence = detection.cnf > 0.80f
+            
             if (areaChange > effectiveAreaThreshold) {
-                if (missCount > 20) Log.d("[IoUTracker]", "$logPrefix REJECT: AreaChange($areaChange) > Thresh($effectiveAreaThreshold)")
-               continue 
+                if (isHighConfidence) {
+                    if (missCount > 20) Log.d("[IoUTracker]", "$logPrefix BYPASS: AreaChange($areaChange) > Thresh($effectiveAreaThreshold) but High Confidence")
+                } else {
+                    if (missCount > 20) Log.d("[IoUTracker]", "$logPrefix REJECT: AreaChange($areaChange) > Thresh($effectiveAreaThreshold)")
+                    continue 
+                }
             }
             
             // 3. 크기 비율 체크 (배경 거부)
