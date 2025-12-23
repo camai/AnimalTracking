@@ -13,7 +13,6 @@ dependencies {
     implementation(project(":core:core-android"))
     implementation(project(":core:core-tracking"))
     implementation(project(":domain"))
-    implementation(project(":data"))
     implementation(project(":feature:camera"))
     
     implementation(libs.androidx.lifecycle.runtime.ktx)
